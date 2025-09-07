@@ -13,7 +13,7 @@ export default function Home() {
 
   return (
     <>
-    <div className='h-screen w-full flex-center realtive'>
+    <div className='h-screen w-full flex-center realtive bg-black'>
       <Map show={true} flyKey={flyKey} />
       <div className='w-full h-20 flex-center fixed bottom-0 z-[999]'>
         <button 

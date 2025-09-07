@@ -1,7 +1,8 @@
-import L,{ LeafletMouseEvent, LatLng  } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvent, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import ClickPopup from "./ClickPopup";
+import UserLocation from "./UserLocation";
 
 export default function Map({show, flyKey}:{show:boolean, flyKey:number}) {
 
@@ -44,52 +45,9 @@ export default function Map({show, flyKey}:{show:boolean, flyKey:number}) {
         url='https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png'
       />
       <ClickPopup />
-      <UserLocation position={position} zoom={13} show={show} flyKey={flyKey} />
+      <UserLocation position={position} zoom={18} show={show} flyKey={flyKey} />
     </MapContainer>
   );
 }
 
-function ClickPopup() {
-  const [position, setPosition] = useState<LatLng | null>(null);
 
-  useMapEvent("click", (e: LeafletMouseEvent) => {
-    setPosition(e.latlng);
-  });
-
-  return (
-    position && (
-      <Popup position={position}>
-        <div className="h-20 p-4 bg-[#323233] rounded-md text-center text-white flex justify-center items-center flex-col">
-          <p>You clicked at </p>
-          <p>{position.lat.toString().slice(0, 7)}, {position.lng.toString().slice(0, 7)}</p>
-        </div>
-      </Popup>
-    )
-  );
-}
-
-function UserLocation({position, show, zoom, flyKey}:{position:[number, number], show:boolean, zoom:number, flyKey:number}){
-
-  const map = useMap()
-
-  const customIcon = L.icon({
-  iconUrl: "/location.png",   
-  iconSize: [32, 32],         
-  iconAnchor: [16, 32],       
-  popupAnchor: [0, -32],      
-});
-
-  useEffect(()=>{
-    if(flyKey>0){
-      map.flyTo(position, zoom, { animate: true })
-    }
-  },[position,flyKey, map, zoom])
-
-  return (
-    show && (
-      <Marker position={position} icon={customIcon}>
-        <Popup>Hello</Popup>
-      </Marker>
-    )
-  )
-}
