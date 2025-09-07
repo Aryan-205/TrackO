@@ -5,8 +5,32 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvent, useMap } from 'rea
 
 export default function Map({show, flyKey}:{show:boolean, flyKey:number}) {
 
-  const position:[number,number] = [22.632932, 71.220330]
+  //const position:[number,number] = [28.6820, 77.2077]
 
+  const [position, setPosition] = useState< [number, number] >([28.6820, 77.2077])
+
+  useEffect(()=>{
+
+    if (!navigator.geolocation) {
+      console.error("Geolocation not supported");
+      return;
+    }
+    
+    const watchId = navigator.geolocation.watchPosition((pos)=>{
+      setPosition([pos.coords.latitude, pos.coords.longitude])
+    },
+    (err)=>{    
+      console.log("Error: ",err)
+    },{
+      enableHighAccuracy:true,
+      maximumAge:0,
+      timeout:5000
+    }
+    )
+
+    return ()=>navigator.geolocation.clearWatch(watchId)
+
+  },[])
 
   return (
     <MapContainer 
