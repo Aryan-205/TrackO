@@ -9,20 +9,20 @@ export default async function Signin(req:NextRequest){
     const { email, password } = await req.json()
 
     if(!email || !password){
-      return NextResponse.json({message:"Email and Password are required"})
+      return NextResponse.json({message:"Email and Password are required", success:false})
     }
 
     const user = await prisma.User.findUnique({
       where:{ email }
     })
     if(!user){
-      return NextResponse.json({mesaage:"Cannot find User"})
+      return NextResponse.json({mesaage:"Cannot find User", success:false})
     }
 
     const isValidPassword = await bcrypt.compare( password, user.password );
 
     if(!isValidPassword){
-      return NextResponse.json({meassage:"Incorrect password, plz try again"}, { status: 401 })
+      return NextResponse.json({meassage:"Incorrect password, plz try again", success:false}, { status: 401 })
     }
 
     const secret  = process.env.JWT_SECRET_KEY
@@ -33,9 +33,9 @@ export default async function Signin(req:NextRequest){
 
     const token = jwt.sign({id:user.id}, secret) 
 
-    return NextResponse.json({ message: 'Login successfully', token }, { status: 200 });
+    return NextResponse.json({ message: 'Login successfully', token, success:true }, { status: 200 });
     
   } catch (error) {
-    return NextResponse.json({ message: 'Something went wrong' }, { status: 500 });
+    return NextResponse.json({ message: 'Something went wrong', success:false }, { status: 500 });
   }
 }

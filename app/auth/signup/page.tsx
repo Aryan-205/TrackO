@@ -8,14 +8,14 @@ export default async function Signup(req:NextRequest){
     const { email, password } = await req.json()
 
     if(!email || !password){
-      return NextResponse.json({message:"Email and Password are required"})
+      return NextResponse.json({message:"Email and Password are required", success:false })
     }
 
     const user = await prisma.User.findUnique({
       where:{email}
     })
     if(user){
-      return NextResponse.json("User already exist")
+      return NextResponse.json({message:"User already exist", success:false})
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -28,9 +28,9 @@ export default async function Signup(req:NextRequest){
       }
     })
 
-    return NextResponse.json({ message: 'User created successfully', id: newUser.id }, { status: 201 });
+    return NextResponse.json({ message: 'User created successfully', id: newUser.id, success:true }, { status: 201 });
     
   } catch (error) {
-    return NextResponse.json({ message: 'Something went wrong' }, { status: 500 });
+    return NextResponse.json({ message: 'Something went wrong',success:false }, { status: 500 });
   }
 }
