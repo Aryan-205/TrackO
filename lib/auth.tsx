@@ -5,20 +5,33 @@ export default function Auth() {
   const [isLogin, setLogin] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [message, setMessage] = useState('')
   const [success, setSuccess] = useState(null)
 
   async function handleAuth() {
 
     try {
-      const response = await fetch(
-        `/api/auth/${isLogin ? "login" : "signup"}/`,
-        {
-          method: "POST",
-          body: JSON.stringify({ email, password }),
-          headers: { "Content-Type": "application/json" },
-        }
-      );
+      let response = null
+      if(isLogin){
+        response = await fetch(
+          `/api/auth/login/`,
+          {
+            method: "POST",
+            body: JSON.stringify({ email, password }),
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      } else {
+        response = await fetch(
+          `/api/auth/signup/`,
+          {
+            method: "POST",
+            body: JSON.stringify({ email, password, name }),
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
 
       const result = await response.json();
       setMessage(result.message || "No message returned");
@@ -40,6 +53,13 @@ export default function Auth() {
             <p className="text-white text-5xl font-extralight">
               {isLogin ? "Login" : "Create Account"}
             </p>
+            {!isLogin && <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className=" w-full h-12 p-2 border border-white text-white"
+              type="text"
+              placeholder="Email"
+            />}
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}

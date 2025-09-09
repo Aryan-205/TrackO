@@ -1,37 +1,10 @@
 import "leaflet/dist/leaflet.css";
-import { useEffect, useState } from "react";
 import { MapContainer, TileLayer } from 'react-leaflet';
 import ClickPopup from "./ClickPopup";
 import UserLocation from "./UserLocation";
+import Markers from "./Markers";
 
-export default function Map({show, flyKey}:{show:boolean, flyKey:number}) {
-
-  //const position:[number,number] = [28.6820, 77.2077]
-
-  const [position, setPosition] = useState< [number, number] >([28.6820, 77.2077])
-
-  useEffect(()=>{
-
-    if (!navigator.geolocation) {
-      console.error("Geolocation not supported");
-      return;
-    }
-    
-    const watchId = navigator.geolocation.watchPosition((pos)=>{
-      setPosition([pos.coords.latitude, pos.coords.longitude])
-    },
-    (err)=>{    
-      console.log("Error: ",err)
-    },{
-      enableHighAccuracy:true,
-      maximumAge:0,
-      timeout:5000
-    }
-    )
-
-    return ()=>navigator.geolocation.clearWatch(watchId)
-
-  },[])
+export default function Map({ flyKey}:{ flyKey:number}) {
 
   return (
     <MapContainer 
@@ -45,7 +18,8 @@ export default function Map({show, flyKey}:{show:boolean, flyKey:number}) {
         url='https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png'
       />
       <ClickPopup />
-      <UserLocation position={position} zoom={18} show={show} flyKey={flyKey} />
+      <UserLocation zoom={18} flyKey={flyKey} />
+      <Markers/>
     </MapContainer>
   );
 }
