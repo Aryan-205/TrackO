@@ -1,15 +1,12 @@
-/*
-  Warnings:
+-- CreateTable
+CREATE TABLE "public"."User" (
+    "id" SERIAL NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
 
-  - You are about to drop the column `createdAt` on the `User` table. All the data in the column will be lost.
-  - You are about to drop the column `updatedAt` on the `User` table. All the data in the column will be lost.
-  - Added the required column `name` to the `User` table without a default value. This is not possible if the table is not empty.
-
-*/
--- AlterTable
-ALTER TABLE "public"."User" DROP COLUMN "createdAt",
-DROP COLUMN "updatedAt",
-ADD COLUMN     "name" TEXT NOT NULL;
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "public"."Room" (
@@ -32,6 +29,9 @@ CREATE TABLE "public"."Chat" (
 
     CONSTRAINT "Chat_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_email_key" ON "public"."User"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Room_slug_key" ON "public"."Room"("slug");

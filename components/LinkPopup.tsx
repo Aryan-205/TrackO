@@ -14,7 +14,7 @@ export default function LinkPopup() {
     //
     const adminId = null
 
-    const response = await fetch("/api/rooms", {
+    const response = await fetch("/room", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ roomName, adminId }),

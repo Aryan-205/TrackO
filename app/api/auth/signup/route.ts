@@ -2,16 +2,16 @@ import bcrypt from 'bcrypt'
 import { NextRequest, NextResponse } from "next/server"
 import {prisma} from '@/db/prisma'
 
-export default async function Signup(req:NextRequest){
+export default async function POST(req:NextRequest){
 
   try {
-    const { email, password } = await req.json()
+    const { name, email, password } = await req.json()
 
-    if(!email || !password){
+    if(!email || !password || !name){
       return NextResponse.json({message:"Email and Password are required", success:false })
     }
 
-    const user = await prisma.User.findUnique({
+    const user = await prisma.user.findUnique({
       where:{email}
     })
     if(user){
@@ -21,8 +21,9 @@ export default async function Signup(req:NextRequest){
     const salt = await bcrypt.genSalt(10);
     const hashPassword = await bcrypt.hash(password, salt);
 
-    const newUser = await prisma.User.create({
+    const newUser = await prisma.user.create({
       data:{ 
+        name,
         email,
         password:hashPassword
       }
