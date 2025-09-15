@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import { NextRequest, NextResponse } from "next/server"
 import {prisma} from '@/db/prisma'
 
-export default async function POST(req:NextRequest){
+export async function POST(req:NextRequest){
 
   try {
     const { email, password } = await req.json()
@@ -12,7 +12,7 @@ export default async function POST(req:NextRequest){
       return NextResponse.json({message:"Email and Password are required", success:false})
     }
 
-    const user = await prisma.User.findUnique({
+    const user = await prisma.user.findUnique({
       where:{ email }
     })
     if(!user){
