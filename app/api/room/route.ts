@@ -1,12 +1,12 @@
 import { prisma } from "@/db/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
-export default async function Room(req:NextRequest) {
+export async function POST(req:NextRequest) {
   try {
 
     const {roomName, adminId} = await req.json()
-    
-    if(!roomName || !adminId) return NextResponse.json({message:"cannot fint roomName or adminId", success:false}, { status: 400 })
+
+    if(!roomName || !adminId) return NextResponse.json({message:"cannot find roomName or adminId", success:false}, { status: 400 })
     
     const room = await prisma.room.create({
       data:{

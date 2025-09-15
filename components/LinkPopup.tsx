@@ -8,16 +8,15 @@ export default function LinkPopup() {
   const router = useRouter();
 
   async function createRoom() {
-    if (!roomName) return;
+    const adminId = null
+    if (!roomName || !adminId) return;
 
     setLoading(true);
-    //
-    const adminId = null
 
-    const response = await fetch("/room", {
+    const response = await fetch("/api/room", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomName, adminId }),
+      body: JSON.stringify({ roomName, adminId })
     });
 
     const data = await response.json();

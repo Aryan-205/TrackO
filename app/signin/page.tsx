@@ -1,8 +1,10 @@
 "use client"
+import { useRouter } from "next/navigation"
 import { useState } from "react";
 
-export default async function Signin(){
+export default function Signin(){
 
+  const router = useRouter()
   
   const [isLogin, setLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -10,32 +12,39 @@ export default async function Signin(){
   const [message, setMessage] = useState('')
   const [success, setSuccess] = useState(null)
 
-  try {
-    const response = await fetch(
-      `/api/auth/signin/`,
-      {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+  async function handleSignin(){
+    setLogin(!isLogin)
 
-    const result = await response.json();
-    setMessage(result.message || "No message returned");
-    setSuccess(result.success)
+    try {
+      const response = await fetch(
+        `/api/auth/signin/`,
+        {
+          method: "POST",
+          body: JSON.stringify({ email, password }),
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+  
+      const result = await response.json();
+      setMessage(result.message || "No message returned");
+      setSuccess(result.success)
+  
+      console.log("Status:", result.status);
+      console.log("Result:", result);
+    } catch (error) {
+      console.error("Error:", error);
+      setMessage("Something went wrong");
+    }
 
-    console.log("Status:", result.status);
-    console.log("Result:", result);
-  } catch (error) {
-    console.error("Error:", error);
-    setMessage("Something went wrong");
+    if(success == true) router.push("/signin")
   }
+
 
   return (
     <div className="flex-center h-screen w-full bg-black">
-      <div className="w-[60%] h-[80%] flex-center bg-white/90 p-4 rounded-3xl">
-        <div className="w-full h-full p-8 rounded-l-2xl border-2 flex-center flex-col gap-8">
-          <p className="text-4xl font-semibold">Create Account</p>
+      <div className="md:w-[60%] md:h-[80%] flex-center bg-white/90 p-4 rounded-3xl">
+        <div className="w-full h-full p-8 rounded-2xl md:rounded-l-2xl md:rounded-r-none border-2 flex-center flex-col gap-8">
+          <p className="text-4xl font-semibold">Welcome Back</p>
           <div className="w-full grid gap-4">
             <div className="w-full">
               <p>Email</p>
@@ -45,21 +54,19 @@ export default async function Signin(){
               <p>Password</p>
               <input value={password} onChange={(e)=>setPassword(e.target.value)} type="password" className="rounded-xl border w-full h-12 px-4" placeholder="Enter password" />
             </div>
-            <button className="w-full h-12 border rounded-xl text-white bg-black hover:bg-white hover:text-black">Signin</button>
+            <button onClick={handleSignin} className="w-full h-12 border rounded-xl text-white bg-black hover:bg-white hover:text-black">Signin</button>
             <button
-              onClick={() => setLogin(!isLogin)}
+              onClick={()=>router.push("/signup")}
               className="text-black w-full text-center"
             >
-              {isLogin
-                ? "Need an account? Sign up"
-                : "Already have an account? Login"}
+              Need an account? Sign up
             </button>
             {
-              success && <p className="text-white text-center w-full">{message}</p>
+              !success && <p className="text-red-400 text-center w-full">{message}</p>
             }
           </div>
         </div>
-        <div className="h-full w-full">
+        <div className="h-full w-full hidden md:flex">
           <img src="Piano.png" className="object-fill rounded-r-2xl w-full h-full" alt="" />
         </div>
       </div>
