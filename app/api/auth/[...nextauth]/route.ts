@@ -5,6 +5,7 @@ import { PrismaClient } from "@prisma/client";
 import { comparePasswords, hashPassword } from "@/lib/hash";
 import { pages } from "next/dist/build/templates/app-page";
 import Signin from "@/app/(auth)/signin/page";
+import { error } from "console";
 
 const prisma = new PrismaClient();
 
@@ -30,7 +31,8 @@ export const authOptions = {
     })
   ],
   pages: {
-    signIn: "/signin", // your custom signin page
+    signIn: "/signin",
+    error: "/signin"
   },
   session: { strategy: "jwt" as const },
   callbacks: {

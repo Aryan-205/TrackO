@@ -1,14 +1,17 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export default function LinkPopup() {
   const [roomName, setRoomName] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
 
   async function createRoom() {
-    const adminId = null
+    const adminId = (session?.user as { id?: number })?.id;
+
     if (!roomName || !adminId) return;
 
     setLoading(true);
