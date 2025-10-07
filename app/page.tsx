@@ -23,7 +23,7 @@ export default function Home() {
       {
         share && <LinkPopup/>
       }
-      <div className='w-full sm:px-4 text-black text-2xl font-light py-2 flex justify-between items-center'>
+      <div className='w-full sm:px-4 text-black text-4xl font-light py-2 flex justify-between items-center'>
         <p>TrackO</p>
         <img src="/location2.png" className='md:w-8 w-6 md:h-8 h-auto' alt="" />
       </div>
