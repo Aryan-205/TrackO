@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactEventHandler, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 

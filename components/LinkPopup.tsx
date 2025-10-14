@@ -10,11 +10,12 @@ export default function LinkPopup() {
   const { data: session, status } = useSession();
 
   async function createRoom() {
-    const adminId = (session?.user as { id?: number })?.id;
+    const adminId = (session?.user as { id?: string })?.id;
 
     if (!roomName || !adminId) return;
 
     setLoading(true);
+    console.log("adminId",adminId)
 
     const response = await fetch("/api/room", {
       method: "POST",
@@ -24,6 +25,7 @@ export default function LinkPopup() {
 
     const data = await response.json();
     setLoading(false);
+    console.log(response,data)
 
     if (response.ok) {
       router.push(data.link);
@@ -48,7 +50,7 @@ export default function LinkPopup() {
           disabled={loading}
           className="border p-2 w-full rounded-xl"
         >
-          {loading ? "Creating..." : "Share"}
+          {loading ? "Creating..." : "Create"}
         </button>
       </div>
     </div>
