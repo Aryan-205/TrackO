@@ -28,7 +28,7 @@ export default function LinkPopup() {
     console.log(response,data)
 
     if (response.ok) {
-      router.push(data.link);
+      router.push(`/room/${data.roomId}`);
     } else {
       alert(data.message || "Error creating room");
     }

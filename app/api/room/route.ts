@@ -41,9 +41,15 @@ export async function POST(req: Request) {
 
 }
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request) {
   try {
-    const roomId = params.id;
+    const url = new URL(req.url);
+    
+    const roomId = url.searchParams.get("roomId"); 
+
+    if (!roomId) {
+        return NextResponse.json({ message: "Missing roomId parameter" }, { status: 400 });
+    }
 
     const room = await prisma.room.findUnique({
       where: { id: Number(roomId) },

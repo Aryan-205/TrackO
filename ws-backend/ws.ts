@@ -1,128 +1,219 @@
-// server.js (updated logic)
+import { WebSocket, WebSocketServer } from 'ws';
 
-import { WebSocketServer } from "ws";
+type StandardWebSocket = WebSocket;
 
-declare module "ws" {
-  interface WebSocket {
-    id: string;
+interface ClientInfo {
     roomId: string | null;
-    hasAccess: boolean;
+    userId: string | null;
+    isAdmin: boolean;
+}
+
+interface IncomingData {
+    action: string;
+    roomId?: string;
+    userId?: string;
     isCreator: boolean;
+    requesterName?: string;
+    approved?: boolean;
+    targetId?: string; 
+    location?: { lat: number; lng: number; };
+}
+
+const wss = new WebSocketServer({port:8080},()=>{
+  console.log("WebSocket server running on ws://localhost:8080")
+})
+
+const clients = new Map<StandardWebSocket, ClientInfo>();
+
+const rooms = new Map<string, Set<StandardWebSocket>>();
+
+function unicast(client: StandardWebSocket, data: any): void {
+    if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(data));
+    }
+}
+
+function roomcast(roomId: string, data: any): void { 
+    const roomClients = rooms.get(roomId);
+    if (roomClients) {
+        roomClients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(data));
+            }
+        });
+    }
+}
+
+wss.on("connection",(ws: WebSocket)=>{
+
+  clients.set(ws,{roomId: null, userId: null, isAdmin: false });
+  
+  ws.on('message', (message: Buffer) => { 
+        handleIncomingMessage(ws, message.toString());
+    });
+    
+  ws.on('close', () => {
+        cleanUpClient(ws);
+    });
+})
+
+function cleanUpClient(ws: StandardWebSocket): void {
+    const clientInfo = clients.get(ws);
+
+    if (clientInfo && clientInfo.roomId) {
+        const roomClients = rooms.get(clientInfo.roomId);
+        if (roomClients) {
+            roomClients.delete(ws);
+            // Notify room that a member left
+            if (clientInfo.roomId && clientInfo.userId) {
+                roomcast(clientInfo.roomId, { action: 'MEMBER_LEFT', memberId: clientInfo.userId });
+            }
+        }
+    }
+    clients.delete(ws);
+}
+
+
+function handleIncomingMessage(ws: StandardWebSocket, message: string): void {
+  const clientInfo = clients.get(ws);
+  
+  if (!clientInfo) return; 
+
+  let data: IncomingData;
+  try {
+    data = JSON.parse(message);
+  } catch (e) {
+    console.error("Invalid JSON received:", message);
+    return;
+  }
+
+  switch (data.action) {
+    case 'JOIN_ROOM':
+        handleJoinRoom(ws, data, clientInfo);
+        break;
+        
+    case 'REQUEST_PERMISSION':
+        handlePermissionRequest(ws, data, clientInfo);
+        break;
+
+    case 'ADMIN_RESPONSE':
+        handleAdminResponse(ws, data, clientInfo);
+        break;
+
+    case 'LOCATION_UPDATE':
+        handleLocationUpdate(ws, data, clientInfo);
+        break;
+    
+    case 'LEAVING_ROOM':
+        cleanUpClient(ws);
+        break;
+
+    default:
+        console.log(`Unknown action received: ${data.action}`);
   }
 }
 
-const wss = new WebSocketServer({ port: 8080 });
+function handleJoinRoom(ws: StandardWebSocket, data: IncomingData, clientInfo: ClientInfo): void {
+    const { roomId, userId, isCreator, requesterName } = data;
 
-const rooms = new Map();
+    if (!roomId || !userId) return;
 
-wss.on("connection", (ws) => {
-  console.log("Client connected");
-  
-  // Set up an ID for the client and temporary data storage
-  ws.id = Math.random().toString(36).substring(7);
-  ws.roomId = null; 
-  ws.hasAccess = false;
-  ws.isCreator = false;
+    clientInfo.roomId = roomId;
+    clientInfo.userId = userId;
+    clientInfo.isAdmin = isCreator;
+    clients.set(ws, clientInfo); 
 
-  ws.on("message", (message) => {
-    try {
-      const data = JSON.parse(message.toString());
-      
-      // 1. Initial Join/Access Request
-      if (data.action === 'JOIN_ROOM') {
-        const { roomId, accessKey, isCreator } = data;
-        ws.roomId = roomId;
-
-        if (!rooms.has(roomId)) {
-            // Case 1: Room does not exist - this user is the CREATOR
-            if (isCreator) {
-                const newAccessKey = Math.random().toString(36).substring(2, 10);
-                rooms.set(roomId, {
-                    creatorWs: ws,
-                    accessKey: newAccessKey,
-                    members: new Set([ws]),
-                    locations: new Map(),
-                });
-                ws.hasAccess = true;
-                ws.isCreator = true;
-                
-                // Send back the granted key and confirmation
-                ws.send(JSON.stringify({ action: 'JOIN_SUCCESS', accessKey: newAccessKey }));
-                console.log(`Room ${roomId} created. Key: ${newAccessKey}`);
-            } else {
-                // Should not happen, but send error
-                ws.send(JSON.stringify({ action: 'ERROR', message: 'Room not found.' }));
-            }
-        } else {
-            // Case 2: Room exists - Joining user
-            const room = rooms.get(roomId);
-            
-            if (accessKey === room.accessKey) {
-                // Access Granted
-                room.members.add(ws);
-                ws.hasAccess = true;
-                
-                // Send confirmation to the joining user
-                ws.send(JSON.stringify({ action: 'JOIN_SUCCESS', accessKey: room.accessKey }));
-
-                // Send a notification to the creator
-                if (room.creatorWs && room.creatorWs.readyState === ws.OPEN) {
-                    room.creatorWs.send(JSON.stringify({ action: 'MEMBER_JOINED', memberId: ws.id }));
-                }
-
-                // Broadcast current locations to the new member
-                const currentLocations = Array.from(room.locations.values());
-                ws.send(JSON.stringify({ action: 'ALL_LOCATIONS', locations: currentLocations }));
-                
-                console.log(`Client ${ws.id} joined room ${roomId}.`);
-            } else {
-                // Access Denied (or key missing)
-                ws.send(JSON.stringify({ action: 'ACCESS_DENIED' }));
-            }
-        }
-
-      // 2. Location Update
-      } else if (data.action === 'LOCATION_UPDATE' && ws.hasAccess && ws.roomId) {
-        const { lat, lng } = data;
-        const room = rooms.get(ws.roomId);
-        if (room) {
-          // Store the location
-          const locationData = { id: ws.id, lat, lng, name: `User ${ws.id.slice(0, 4)}` };
-          room.locations.set(ws, locationData);
-
-          room.members.forEach((client:any) => {
-            if (client !== ws && client.readyState === ws.OPEN) {
-              client.send(JSON.stringify({ action: 'USER_LOCATION', ...locationData }));
-            }
-          });
-        }
-
-      }
-    } catch (e) {
-      console.error("Invalid message format:", e);
+    if (!rooms.has(roomId)) {
+        rooms.set(roomId, new Set());
     }
-  });
 
-  ws.on("close", () => {
-    console.log(`Client ${ws.id} disconnected`);
+    const roomClients = rooms.get(roomId);
     
-    if (ws.roomId && rooms.has(ws.roomId)) {
-      const room = rooms.get(ws.roomId);
-      room.members.delete(ws);
-      room.locations.delete(ws);
-      
-      // If the creator leaves or the room is empty, clean up
-      if (room.members.size === 0 || ws.isCreator) {
-        rooms.delete(ws.roomId);
-        console.log(`Room ${ws.roomId} closed.`);
-      } else {
-        // Notify others of the member leaving
-        room.members.forEach((client:any) => {
-            if (client.readyState === ws.OPEN) {
-                client.send(JSON.stringify({ action: 'MEMBER_LEFT', memberId: ws.id }));
-            }
+    if (clientInfo.isAdmin) {
+
+      roomClients?.add(ws);
+      console.log(`Admin joined his room ${roomId}.`);
+
+    } 
+
+    else {
+      const adminClient = Array.from(clients.keys()).find(client => 
+          clients.get(client)?.roomId === roomId && clients.get(client)?.isAdmin
+      ) as StandardWebSocket | undefined;
+
+      if (adminClient) {
+        //frontend
+        unicast(adminClient, { 
+            action: 'NEW_REQUEST', 
+            requesterId: userId,
+            requesterName: requesterName,
         });
+        console.log(`Access request from ${requesterName} sent to admin.`);
+        
+        //frontend
+        unicast(ws, { action: 'REQUEST_SENT', message: 'Waiting for admin approval.' });
+        
+      } else {
+        unicast(ws, { action: 'ACCESS_DENIED', message: 'Admin is currently offline. Cannot grant access.' });
+        console.log(`Guest ${userId} DENIED access to room ${roomId} (Admin offline).`);
       }
     }
-  });
-});
+}
+
+function handlePermissionRequest(ws: StandardWebSocket, data: IncomingData, clientInfo: ClientInfo): void {
+    // We reuse the logic from the guest section of handleJoinRoom.
+    handleJoinRoom(ws, data, clientInfo);
+}
+
+function handleAdminResponse(ws: StandardWebSocket, data: IncomingData, clientInfo: ClientInfo): void {
+    if (!clientInfo.isAdmin) {
+        unicast(ws, { action: 'ERROR', message: 'Unauthorized action.' });
+        return;
+    }
+
+    const { approved, targetId, roomId } = data; 
+
+    if (!targetId || !roomId) return;
+
+    const targetClient = Array.from(clients.keys()).find(client => 
+        clients.get(client)?.userId === targetId && clients.get(client)?.roomId === roomId
+    ) as StandardWebSocket | undefined;
+
+    if (targetClient) {
+        if (approved) {
+            rooms.get(roomId)?.add(targetClient);
+            unicast(targetClient, { action: 'JOIN_SUCCESS', message: 'Access granted.' });
+            
+            roomcast(roomId, { action: 'MEMBER_JOINED', memberId: targetId });
+            console.log(`Access GRANTED to ${targetId} in room ${roomId}.`);
+        } else {
+            // 3. Deny access
+            unicast(targetClient, { action: 'ACCESS_DENIED', message: 'Access denied by admin.' });
+            console.log(`Access DENIED to ${targetId} in room ${roomId}.`);
+        }
+    }
+}
+
+function handleLocationUpdate(ws: StandardWebSocket, data: IncomingData, clientInfo: ClientInfo): void {
+    if (!clientInfo.roomId) return;
+    
+    const isMember = rooms.get(clientInfo.roomId)?.has(ws);
+
+    // Security check: Only broadcast if the user is an authorized member
+    if (!isMember) {
+        unicast(ws, { action: 'ERROR', message: 'Unauthorized to send location updates.' });
+        return;
+    }
+
+    const n = navigator.geolocation.watchPosition()
+    
+    // Broadcast the location update to all other room members
+    const { location } = data;
+    if (location) {
+        roomcast(clientInfo.roomId, { 
+            action: 'USER_LOCATION', 
+            userId: clientInfo.userId, 
+            location: location 
+        });
+    }
+}
