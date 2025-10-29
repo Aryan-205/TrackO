@@ -1,4 +1,6 @@
 "use client"
+import AccessPopup from '@/components/AccessPopup';
+import AdminPopup from '@/components/AdminPopup';
 import RoomMap from '@/components/RoomMap';
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
@@ -6,6 +8,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MdOutlineLocationOn } from "react-icons/md";
 import { TbLocation } from "react-icons/tb";
+
 const Map = dynamic(() => import('@/components/Map'), { ssr: false });
 
 export default function Room() {
@@ -13,7 +16,7 @@ export default function Room() {
   const router = useRouter()
   const { data: session, status } = useSession()
 
-  const userId = useMemo(() => (session?.user as any)?.id, [session]);
+  const userId = useMemo(() => (session?.user)?.id, [session]);
   
   const params = useParams();
   const currentRoomId = params.roomId as string | undefined;
@@ -21,7 +24,7 @@ export default function Room() {
   const [roomName, setRoomName] = useState("")
   const [flyKey, setFlyKey] = useState(0);
   const [memberLocations, setMemberLocations] = useState<{ [userId: string]: { lat: number, lng: number, name: string } }>({});
-  
+
   const [isAdmin, setIsAdmin] = useState(false)
   const [share, setShare] = useState(false);
   const [accessKeyGranted, setAccessKeyGranted] = useState(false);
@@ -216,63 +219,16 @@ export default function Room() {
 
   }, [ws, accessKeyGranted, currentRoomId]);
 
-function handleExit(){
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ 
-            action: 'LEAVING_ROOM', 
-            roomId: currentRoomId, 
-            userId
-        })) 
-        ws.close();
-    }
-    router.push("/")
-}
-
-  function AccessPopup(){ 
-
-    const [requestStatus, setRequestStatus] = useState<"idle" | "sent" | "queued">("idle");
-
-    const requestPermission = useCallback(() => {
-      if (!ws) {
-          alert("Connection not established. Please try refreshing.");
-          return;
+  function handleExit(){
+      if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ 
+              action: 'LEAVING_ROOM', 
+              roomId: currentRoomId, 
+              userId
+          })) 
+          ws.close();
       }
-      ws.send(JSON.stringify({ 
-          action: 'REQUEST_PERMISSION', 
-          roomId: currentRoomId, 
-          userId, 
-          requesterName: session?.user?.name 
-      }));
-      
-      setRequestStatus("sent");
-    }, [ws, currentRoomId, userId, session?.user?.name]);
-  
-    return (
-      <>
-      <div className="w-full h-screen inset-0 fixed flex-center z-[999] bg-white/30">
-        <div className="md:w-[20%] w-[60%] bg-white rounded-2xl p-4 flex-center gap-2 flex-col relative">
-          <p>Request Permission</p>
-          <p>Admin: <span className='text-blue-500'>{session?.user?.name}</span></p>
-          <div className='flex justify-around w-full'>
-            <button
-              onClick={requestPermission}
-              className="border px-4 py-2 rounded-xl w-fit hover:bg-black hover:text-white"
-              >
-              {requestStatus === "idle" && "Request"}
-              {requestStatus === "sent" && "Sent (Waiting for admin)"}
-              {requestStatus === "queued" && "Queued (Admin offline)"}
-            </button>
-            <button
-              className="border px-4 py-2 w-fit rounded-xl bg-red-400 hover:bg-red-400/80"
-              onClick={handleExit}
-              >
-              Exit
-            </button>
-          </div>
-        </div>
-      </div>
-      </>
-    )
+      router.push("/")
   }
 
   function handleLocate() {
@@ -289,64 +245,33 @@ function handleExit(){
     }
   }
 
-  function AdminPopup() {
-    const guestId = pendingRequest?.id;
-    const guestName = pendingRequest?.name;
-
-    if (!guestId) return null;
-
-    const accessApproved = useCallback(() => {
-      if (!ws) {
-          alert("Connection not established. Please try refreshing.");
-          return;
-      }
-      ws.send(JSON.stringify({ 
-          action: 'ADMIN_RESPONSE', 
-          approved: true, 
-          roomId: currentRoomId, 
-          targetId: guestId 
-      }));
-      setNewRequest(false);
-      setPendingRequest(null); 
-    }, [ws, guestId, currentRoomId]); 
-
-    const accessDenied = useCallback(() => {
-      if (!ws) {
-          alert("Connection not established. Please try refreshing.");
-          return;
-      }
-      ws.send(JSON.stringify({ 
-          action: 'ADMIN_RESPONSE', 
-          approved: false, 
-          roomId: currentRoomId, 
-          targetId: guestId 
-      }));
-      setNewRequest(false);
-      setPendingRequest(null);
-    }, [ws, guestId, currentRoomId]);
-
-    return (
-      <div className='fixed z-[999] top-18 right-12 bg-white rounded-xl p-8 border text-center flex flex-col gap-2 shadow-2xl'>
-        <p className='font-semibold text-lg'>{guestName || guestId}</p>
-        <p>requests to join the room</p>
-        <div className='flex gap-4 w-full'>
-          <button onClick={accessApproved} className='border px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition'>Accept</button>
-          <button onClick={accessDenied} className='border px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition'>Decline</button>
-        </div>
-      </div>
-    )
-}
-
   if (isLoading) return <div>Loading room details...</div>;
 
   return (
     <>
     <div className='h-screen w-full flex-center flex-col relative bg-white md:px-8 px-2 md:pb-8 pb-4 '>
       {
-        !accessKeyGranted && <AccessPopup/> 
+        // 🚀 3. Call the imported component and pass props
+        !accessKeyGranted && (
+            <AccessPopup
+                ws={ws}
+                currentRoomId={currentRoomId}
+                userId={userId}
+                session={session}
+                handleExit={handleExit}
+            />
+        )
       }
       {
-        newRequest && <AdminPopup/>
+        newRequest && (
+            <AdminPopup
+                ws={ws}
+                currentRoomId={currentRoomId}
+                pendingRequest={pendingRequest}
+                setNewRequest={setNewRequest}
+                setPendingRequest={setPendingRequest}
+            />
+        )
       }
       <div className='w-full sm:px-4 text-black text-4xl font-light py-2 flex justify-between items-center'>
         <p>TrackO</p>

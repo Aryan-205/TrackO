@@ -1,10 +1,38 @@
-import NextAuth from "next-auth";
+import NextAuth, { DefaultSession, Session } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
-import { comparePasswords, hashPassword } from "@/lib/hash";
+import { comparePasswords } from "@/lib/hash";
+import { JWT } from "next-auth/jwt";
 
 const prisma = new PrismaClient();
+
+type CustomUser = Omit<DefaultSession['user'], 'name' | 'email' | 'image'>;
+
+declare module 'next-auth' {
+  interface Session {
+    user: {
+      id?: string;      
+      name: string;    
+      email: string;   
+    } & CustomUser; 
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    id: string;
+    name: string;
+  }
+}
+
+declare module 'next-auth' {
+  interface User {
+    id: string;
+    name: string;
+    email: string;
+  }
+}
 
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
@@ -32,16 +60,19 @@ export const authOptions = {
     error: "/signin"
   },
   session: { strategy: "jwt" as const },
+
   callbacks: {
-    async jwt({ token, user }:{token:any, user:any}) {
+
+    async jwt({ token, user }:{token:JWT, user?:{ id: string, name: string, email: string }}) {
       if (user) {
         token.id = user.id;
-        token.name = user.name; // 👈 Add name from the user object to the JWT
+        token.name = user.name;
       }
       return token;
     },
-    async session({ session, token }:{session:any, token:any}) {
-      session.user.id = token.id || token.sub; 
+    // 💡 Session callback types are fixed here
+    async session({ session, token }:{session:Session, token:JWT}) {
+      session.user.id = token.id as string || token.sub; 
       session.user.name = token.name; 
       return session;
     }
