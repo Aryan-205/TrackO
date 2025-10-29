@@ -6,6 +6,7 @@ interface ClientInfo {
     roomId: string | null;
     userId: string | null;
     isAdmin: boolean;
+    name: string | null;
 }
 
 interface IncomingData {
@@ -46,7 +47,7 @@ function roomcast(roomId: string, data: any): void {
 
 wss.on("connection",(ws: WebSocket)=>{
 
-  clients.set(ws,{roomId: null, userId: null, isAdmin: false });
+  clients.set(ws,{name: null, roomId: null, userId: null, isAdmin: false });
   
   ws.on('message', (message: Buffer) => { 
         handleIncomingMessage(ws, message.toString());
@@ -121,28 +122,32 @@ function handleJoinRoom(ws: StandardWebSocket, data: IncomingData, clientInfo: C
     clientInfo.roomId = roomId;
     clientInfo.userId = userId;
     clientInfo.isAdmin = isCreator;
+    clientInfo.name = requesterName ?? null;
     clients.set(ws, clientInfo); 
 
     if (!rooms.has(roomId)) {
         rooms.set(roomId, new Set());
     }
 
-    const roomClients = rooms.get(roomId);
+    const room = rooms.get(roomId);
     
     if (clientInfo.isAdmin) {
-
-      roomClients?.add(ws);
+      room?.add(ws);
       console.log(`Admin joined his room ${roomId}.`);
-
     } 
+}
 
-    else {
-      const adminClient = Array.from(clients.keys()).find(client => 
-          clients.get(client)?.roomId === roomId && clients.get(client)?.isAdmin
-      ) as StandardWebSocket | undefined;
+function handlePermissionRequest(ws: StandardWebSocket, data: IncomingData, clientInfo: ClientInfo): void {
+    const { roomId, userId, requesterName } = data;
 
-      if (adminClient) {
-        //frontend
+    if (!roomId || !userId) return; 
+
+    const adminClient = Array.from(clients.keys()).find(client => 
+        clients.get(client)?.roomId === roomId && clients.get(client)?.isAdmin
+    ) as StandardWebSocket | undefined;
+
+    if (adminClient) {
+        // Admin is online
         unicast(adminClient, { 
             action: 'NEW_REQUEST', 
             requesterId: userId,
@@ -150,19 +155,13 @@ function handleJoinRoom(ws: StandardWebSocket, data: IncomingData, clientInfo: C
         });
         console.log(`Access request from ${requesterName} sent to admin.`);
         
-        //frontend
         unicast(ws, { action: 'REQUEST_SENT', message: 'Waiting for admin approval.' });
         
-      } else {
+    } else {
+        // Admin is offline: Deny access immediately.
         unicast(ws, { action: 'ACCESS_DENIED', message: 'Admin is currently offline. Cannot grant access.' });
         console.log(`Guest ${userId} DENIED access to room ${roomId} (Admin offline).`);
-      }
     }
-}
-
-function handlePermissionRequest(ws: StandardWebSocket, data: IncomingData, clientInfo: ClientInfo): void {
-    // We reuse the logic from the guest section of handleJoinRoom.
-    handleJoinRoom(ws, data, clientInfo);
 }
 
 function handleAdminResponse(ws: StandardWebSocket, data: IncomingData, clientInfo: ClientInfo): void {
@@ -199,20 +198,18 @@ function handleLocationUpdate(ws: StandardWebSocket, data: IncomingData, clientI
     
     const isMember = rooms.get(clientInfo.roomId)?.has(ws);
 
-    // Security check: Only broadcast if the user is an authorized member
     if (!isMember) {
         unicast(ws, { action: 'ERROR', message: 'Unauthorized to send location updates.' });
         return;
     }
-
-    const n = navigator.geolocation.watchPosition()
     
-    // Broadcast the location update to all other room members
     const { location } = data;
+
     if (location) {
         roomcast(clientInfo.roomId, { 
             action: 'USER_LOCATION', 
-            userId: clientInfo.userId, 
+            userId: clientInfo.userId,
+            name: clientInfo.name,
             location: location 
         });
     }

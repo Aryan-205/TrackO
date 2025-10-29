@@ -21,10 +21,10 @@ export default function Room() {
   const [flyKey, setFlyKey] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false)
   const [share, setShare] = useState(false);
-  const [accessKey, setAccessKey] = useState(null) 
   const [accessKeyGranted, setAccessKeyGranted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [newRequest, setNewRequest] = useState(false) 
+  const [pendingRequest, setPendingRequest] = useState<{ id: string, name: string } | null>(null);
 
   const [ws, setWs] = useState<WebSocket | null>(null);
 
@@ -52,7 +52,6 @@ export default function Room() {
           }
 
           const roomData = await res.json();
-          setAccessKey(roomData.accessKey);
           setRoomName(roomData.slug);
 
           userIsAdmin = roomData.adminId === Number(userId);
@@ -78,7 +77,6 @@ export default function Room() {
   useEffect(() => {
     if (isLoading || !currentRoomId) return;
 
-    // Check if an instance already exists to prevent re-creation
     if (ws) return; 
 
     console.log("Attempting to connect to WebSocket...");
@@ -90,8 +88,7 @@ export default function Room() {
 
         newWs.send(JSON.stringify({
             action: 'JOIN_ROOM',
-            roomId: currentRoomId, 
-            accessKey: userIsAdmin ? accessKey : null, 
+            roomId: currentRoomId,  
             isCreator: isAdmin,
             userId,
             requesterName: session?.user?.name
@@ -103,7 +100,6 @@ export default function Room() {
         setWs(null);
     };
 
-    // Cleanup function for when the component unmounts
     return () => {
         if (newWs.readyState === WebSocket.OPEN) {
             newWs.close();
@@ -134,18 +130,56 @@ export default function Room() {
 
         if (data.action === 'NEW_REQUEST') {
           setNewRequest(true)
+          setPendingRequest({ id: data.requesterId, name: data.requesterName });
         }
     };
 
   }, [ws, accessKeyGranted, router]);
 
-  function handleExit(){
+  //Sending location
+  useEffect(() => {
+
+      if (!ws || !accessKeyGranted || !currentRoomId) return;
+
+      const sendCurrentLocation = () => {
+          navigator.geolocation.getCurrentPosition(
+              (position: GeolocationPosition) => {
+                  const locationData = {
+                      action: 'LOCATION_UPDATE',
+                      roomId: currentRoomId,
+                      location: {
+                          lat: position.coords.latitude,
+                          lng: position.coords.longitude
+                      }
+                  };
+                  ws.send(JSON.stringify(locationData));
+              },
+              (error) => {
+                  console.error("Geolocation Error:", error.message);
+              },
+              { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+          );
+      };
+
+      const intervalId = setInterval(sendCurrentLocation, 5000);
+
+      return () => {
+          clearInterval(intervalId);
+      };
+
+  }, [ws, accessKeyGranted, currentRoomId]);
+
+function handleExit(){
     if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ action: 'LEAVING_ROOM', roomId: currentRoomId, requesterId: userId }))
+        ws.send(JSON.stringify({ 
+            action: 'LEAVING_ROOM', 
+            roomId: currentRoomId, 
+            userId
+        })) 
         ws.close();
     }
     router.push("/")
-  }
+}
 
   function AccessPopup(){ 
 
@@ -156,11 +190,16 @@ export default function Room() {
           alert("Connection not established. Please try refreshing.");
           return;
       }
-      ws.send(JSON.stringify({ action: 'REQUEST_PERMISSION', roomId: currentRoomId, requesterId: userId }));
+      ws.send(JSON.stringify({ 
+          action: 'REQUEST_PERMISSION', 
+          roomId: currentRoomId, 
+          userId, 
+          requesterName: session?.user?.name 
+      }));
       
       setRequest(true)
-  
-    }, [ws]);
+
+    }, [ws, currentRoomId, userId, session?.user?.name]);
   
     return (
       <>
@@ -202,37 +241,53 @@ export default function Room() {
     }
   }
 
-  function AdminPopup(){
+  function AdminPopup() {
+    const guestId = pendingRequest?.id;
+    const guestName = pendingRequest?.name;
+
+    if (!guestId) return null;
 
     const accessApproved = useCallback(() => {
       if (!ws) {
           alert("Connection not established. Please try refreshing.");
           return;
       }
-      ws.send(JSON.stringify({ approved:true, roomId: currentRoomId, requesterId: userId }));
-      setNewRequest(false)
-    }, [ws]);
+      ws.send(JSON.stringify({ 
+          action: 'ADMIN_RESPONSE', 
+          approved: true, 
+          roomId: currentRoomId, 
+          targetId: guestId 
+      }));
+      setNewRequest(false);
+      setPendingRequest(null); 
+    }, [ws, guestId, currentRoomId]); 
 
     const accessDenied = useCallback(() => {
       if (!ws) {
           alert("Connection not established. Please try refreshing.");
           return;
       }
-      ws.send(JSON.stringify({ approved:false, roomId: currentRoomId, requesterId: userId }));
-      setNewRequest(false)
-    }, [ws]);
+      ws.send(JSON.stringify({ 
+          action: 'ADMIN_RESPONSE', 
+          approved: false, 
+          roomId: currentRoomId, 
+          targetId: guestId 
+      }));
+      setNewRequest(false);
+      setPendingRequest(null);
+    }, [ws, guestId, currentRoomId]);
 
     return (
-      <div className='fixed z-[999] top-18 right-12 bg-white rounded-xl p-8 border text-center flex flex-col gap-2'>
-        <p className='bg-blue-500'>{session?.user?.name || userId}</p>
+      <div className='fixed z-[999] top-18 right-12 bg-white rounded-xl p-8 border text-center flex flex-col gap-2 shadow-2xl'>
+        <p className='font-semibold text-lg'>{guestName || guestId}</p>
         <p>requests to join the room</p>
         <div className='flex gap-4 w-full'>
-          <button onClick={accessApproved} className='border px-4 py-2 rounded-lg'>Accept</button>
-          <button onClick={accessDenied} className='border px-4 py-2 rounded-lg'>Decline</button>
+          <button onClick={accessApproved} className='border px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 transition'>Accept</button>
+          <button onClick={accessDenied} className='border px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition'>Decline</button>
         </div>
       </div>
     )
-  }
+}
 
   if (isLoading) return <div>Loading room details...</div>;
 
