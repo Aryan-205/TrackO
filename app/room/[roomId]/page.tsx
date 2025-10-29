@@ -1,4 +1,5 @@
 "use client"
+import RoomMap from '@/components/RoomMap';
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
@@ -19,6 +20,8 @@ export default function Room() {
   
   const [roomName, setRoomName] = useState("")
   const [flyKey, setFlyKey] = useState(0);
+  const [memberLocations, setMemberLocations] = useState<{ [userId: string]: { lat: number, lng: number, name: string } }>({});
+  
   const [isAdmin, setIsAdmin] = useState(false)
   const [share, setShare] = useState(false);
   const [accessKeyGranted, setAccessKeyGranted] = useState(false);
@@ -32,9 +35,8 @@ export default function Room() {
 
   // Fetch Room Details
   useEffect(() => {
-    // Redirect if unauthenticated
     if (status === 'unauthenticated') {
-      router.push('/')
+      router.push('/signup')
       setIsLoading(false);
       return;
     }
@@ -64,7 +66,7 @@ export default function Room() {
 
         } catch (error) {
           console.error('Error fetching room:', error);
-          setIsLoading(false); // Stop loading regardless of error
+          setIsLoading(false);
           router.push('/'); 
         }
       };
@@ -102,6 +104,12 @@ export default function Room() {
 
     return () => {
         if (newWs.readyState === WebSocket.OPEN) {
+            console.log("WebSocket cleanup: closing connection.");
+            newWs.send(JSON.stringify({ 
+                action: 'LEAVING_ROOM', 
+                roomId: currentRoomId, 
+                userId
+            }));
             newWs.close();
         }
     };
@@ -109,7 +117,7 @@ export default function Room() {
 
   // WebSocket Message Handling
   useEffect(() => {
-    if (!ws || accessKeyGranted) return; // Only listen if connected and access is NOT granted
+    if (!ws) return;
 
     ws.onmessage = (msg) => {
         const data = JSON.parse(msg.data);
@@ -131,6 +139,45 @@ export default function Room() {
         if (data.action === 'NEW_REQUEST') {
           setNewRequest(true)
           setPendingRequest({ id: data.requesterId, name: data.requesterName });
+        }
+
+        // ✅ Handle new server-side messages
+        if (data.action === 'ADMIN_DENIED') {
+            alert("Admin already exists for this room. You're joining as a guest.");
+            setIsAdmin(false);
+            setAccessKeyGranted(false);
+        }
+
+        if (data.action === 'LOCATION_UPDATE') {
+            const { userId, location, requesterName } = data;
+
+            setMemberLocations(prev => ({
+                ...prev,
+                [userId]: {
+                    lat: location.lat,
+                    lng: location.lng,
+                    name: requesterName || 'Unknown User' // Use requesterName from server or a default
+                }
+            }));
+        }
+        
+        // 🗑️ Handle member leaving (optional, but recommended for cleanup)
+        if (data.action === 'MEMBER_LEFT' || data.action === 'LEAVING_ROOM') {
+            const leavingUserId = data.userId;
+            setMemberLocations(prev => {
+                const newState = { ...prev };
+                delete newState[leavingUserId];
+                return newState;
+            });
+        }
+
+        if (data.action === 'REQUEST_QUEUED') {
+            alert("Admin is offline. Your request is queued and will be processed when they reconnect.");
+        }
+
+        if (data.action === 'ERROR') {
+            console.error("Server error:", data.message);
+            alert(data.message || "Unexpected server error occurred.");
         }
     };
 
@@ -183,8 +230,8 @@ function handleExit(){
 
   function AccessPopup(){ 
 
-    const [request, setRequest] = useState(false)
-    
+    const [requestStatus, setRequestStatus] = useState<"idle" | "sent" | "queued">("idle");
+
     const requestPermission = useCallback(() => {
       if (!ws) {
           alert("Connection not established. Please try refreshing.");
@@ -197,8 +244,7 @@ function handleExit(){
           requesterName: session?.user?.name 
       }));
       
-      setRequest(true)
-
+      setRequestStatus("sent");
     }, [ws, currentRoomId, userId, session?.user?.name]);
   
     return (
@@ -212,7 +258,9 @@ function handleExit(){
               onClick={requestPermission}
               className="border px-4 py-2 rounded-xl w-fit hover:bg-black hover:text-white"
               >
-              {request ? "Sent" : "Request"}
+              {requestStatus === "idle" && "Request"}
+              {requestStatus === "sent" && "Sent (Waiting for admin)"}
+              {requestStatus === "queued" && "Queued (Admin offline)"}
             </button>
             <button
               className="border px-4 py-2 w-fit rounded-xl bg-red-400 hover:bg-red-400/80"
@@ -307,7 +355,7 @@ function handleExit(){
           <MdOutlineLocationOn />
         </div>
       </div>
-      <Map flyKey={flyKey} />
+      <RoomMap memberLocations={memberLocations} flyKey={flyKey} />
       <div className='w-full h-20 flex-center md:gap-20 gap-8 fixed bottom-10 z-[999]'>
         <button 
           onClick={handleLocate} 

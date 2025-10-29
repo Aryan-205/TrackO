@@ -1,7 +1,13 @@
 import { Marker, Popup } from "react-leaflet"
 import L from 'leaflet'
 
-export default function Markers(){
+// 🔄 Define the type for the new prop
+interface MemberLocations {
+    [userId: string]: { lat: number, lng: number, name: string };
+}
+
+// 🤝 Accept the new prop
+export default function Markers({ memberLocations }:{ memberLocations: MemberLocations }){
 
   const customIcon = L.icon({
     iconUrl: "/location.png",   
@@ -10,39 +16,33 @@ export default function Markers(){
     popupAnchor: [0, -32],      
   });
 
-  const positiions = [
-    {
-      name:"",
-      icon:customIcon,
-      position:{
-        lat:123,
-        lng:123
-      }
-    },
-    {
-      name:"",
-      icon:customIcon,
-      position:{
-        lat:23,
-        lng:13
-      }
-    },
-    {
-      name:"",
-      icon:customIcon,
-      position:{
-        lat:13,
-        lng:23
-      }
-    },
+  // 🗑️ Remove the old static `positiions` array
+  /* const positiions = [
+    // ... removed static data
   ]
+  */
+
+  // ⚙️ Convert the memberLocations object into an array for mapping
+  const locationsArray = Object.entries(memberLocations).map(([userId, data]) => ({
+      userId: userId,
+      name: data.name,
+      icon: customIcon,
+      position: {
+        lat: data.lat,
+        lng: data.lng
+      }
+  }));
 
   return (
     <>
     {
-      positiions.map((pos, index)=>(
-        <Marker key={index} position={pos.position} icon={pos.icon}>
-          <Popup>Hello {index}</Popup>
+      // 🚀 Map over the locationsArray to display markers
+      locationsArray.map((pos)=>(
+        <Marker key={pos.userId} position={[pos.position.lat, pos.position.lng]} icon={pos.icon}>
+          <Popup>
+            {/* Show the user's name in the popup */}
+            **{pos.name}**
+          </Popup>
         </Marker>
       ))
     }

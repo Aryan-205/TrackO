@@ -1,8 +1,13 @@
 import "leaflet/dist/leaflet.css";
-import { MapContainer, TileLayer } from 'react-leaflet';
+import { MapContainer, Marker, TileLayer } from 'react-leaflet';
 import UserLocation from "./UserLocation";
+import Markers from "./Markers";
 
-export default function Map({ flyKey}:{ flyKey:number}) {
+interface MemberLocations {
+    [userId: string]: { lat: number, lng: number, name: string };
+}
+
+export default function RoomMap({ flyKey, memberLocations}:{ flyKey:number, memberLocations: MemberLocations }) {
 
   return (
     <MapContainer 
@@ -16,6 +21,7 @@ export default function Map({ flyKey}:{ flyKey:number}) {
         url='https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png'
       />
       <UserLocation zoom={18} flyKey={flyKey} />
+      <Markers memberLocations={memberLocations}/>
     </MapContainer>
   );
 }
