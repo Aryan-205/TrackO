@@ -3,13 +3,10 @@ import AccessPopup from '@/components/AccessPopup';
 import AdminPopup from '@/components/AdminPopup';
 import RoomMap from '@/components/RoomMap';
 import { useSession } from 'next-auth/react';
-import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MdOutlineLocationOn } from "react-icons/md";
 import { TbLocation } from "react-icons/tb";
-
-const Map = dynamic(() => import('@/components/Map'), { ssr: false });
 
 export default function Room() {
 
@@ -34,10 +31,10 @@ export default function Room() {
 
   const [ws, setWs] = useState<WebSocket | null>(null);
 
-  let userIsAdmin:boolean = false;
-
+  
   // Fetch Room Details
   useEffect(() => {
+    let userIsAdmin:boolean = false;
     if (status === 'unauthenticated') {
       router.push('/signup')
       setIsLoading(false);
