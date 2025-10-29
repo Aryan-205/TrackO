@@ -21,8 +21,6 @@ export default function AdminPopup({
     const guestId = pendingRequest?.id;
     const guestName = pendingRequest?.name;
 
-    if (!guestId) return null; // Conditional return is fine here
-
     // Now useCallback is called unconditionally within this component
     const accessApproved = useCallback(() => {
       if (!ws) {
@@ -65,5 +63,3 @@ export default function AdminPopup({
       </div>
     )
 }
-
-// ... rest of the file starts here (export default function Room() { ... } )
