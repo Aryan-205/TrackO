@@ -1,13 +1,10 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function Signup() {
   const router = useRouter();
-
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -35,7 +32,7 @@ export default function Signup() {
       setLoading(false); 
 
       if (response.ok) {
-        router.push(`/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+        router.push(`/signin`);
       }
     } catch (error) {
       setMessage("An unexpected error occurred during signup.");
@@ -94,7 +91,7 @@ export default function Signup() {
             </button>
             <button
               type="button"
-              onClick={() => router.push(`/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`)}
+              onClick={() => router.push(`/signin`)}
               className="text-gray-500 w-full text-center cursor-pointer"
             >
               Already have an account?<span className="text-blue-500"> Sign in</span>

@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { MdOutlineLocationOn } from "react-icons/md";
 import { TbLocation } from "react-icons/tb";
+import { store } from "@/lib/store"
 
 export default function Room() {
 
@@ -31,14 +32,14 @@ export default function Room() {
 
   const [ws, setWs] = useState<WebSocket | null>(null);
 
-  
+  const setLastUrl = store((state) => state.setLastUrl);
+
   // Fetch Room Details
   useEffect(() => {
     let userIsAdmin:boolean = false;
     if (status === 'unauthenticated') {
-      const callbackUrl = window.location.pathname; // Get the full path, e.g., /room/28
-      // Redirect to signin, attaching the room URL as a callbackUrl query parameter
-      router.push(`/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`)
+      setLastUrl(window.location.pathname)
+      router.push(`/signin`)
       setIsLoading(false);
       return;
     }

@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { store } from "@/lib/store";
 
 export default function Signin() {
   const router = useRouter();
 
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
+  const lastUrl = store(state=>state.lastUrl)
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,7 +35,7 @@ export default function Signin() {
       console.log(result.error)
     } else if (result && result.ok) {
 
-      router.push(result.url || "/");
+      router.push(lastUrl ?? "/");
     }
   }
 
@@ -79,7 +79,7 @@ export default function Signin() {
             </button>
             <button
               type="button"
-              onClick={() => router.push(`/signup?callbackUrl=${encodeURIComponent(callbackUrl)}`)}
+              onClick={() => router.push("/signup")}
               className="text-gray-500 w-full text-center cursor-pointer"
             >
               Need an account?<span className="text-blue-500"> Sign up</span>
