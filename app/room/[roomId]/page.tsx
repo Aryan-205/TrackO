@@ -36,7 +36,9 @@ export default function Room() {
   useEffect(() => {
     let userIsAdmin:boolean = false;
     if (status === 'unauthenticated') {
-      router.push('/signup')
+      const callbackUrl = window.location.pathname; // Get the full path, e.g., /room/28
+      // Redirect to signin, attaching the room URL as a callbackUrl query parameter
+      router.push(`/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`)
       setIsLoading(false);
       return;
     }
